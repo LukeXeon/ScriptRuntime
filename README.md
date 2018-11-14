@@ -35,6 +35,7 @@ Add it in your root build.gradle at the end of repositories:
 ## Related projects
 * [picoc](https://gitlab.com/zsaleeba/picoc) This project is a secondary development based on picoc, which is the android branch of picoc.
 * [linenoise NG](https://github.com/arangodb/linenoise-ng) Using linenoise NG to replace the GNU readline library originally used by picoc reduces the size of the binary and reduces the dependency, making the program run better on mobile platforms.
+* [Android-C-Interpreter](https://github.com/sanyuankexie/Android-C-Interpreter) The jni layer source can be found here, but it is not necessarily a stable version, and the jni layer source is built using Visual Stdio.
 
 ## Licence
 
