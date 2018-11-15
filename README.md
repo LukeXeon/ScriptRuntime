@@ -1,7 +1,7 @@
 ## ScriptRuntime
 * This is a low-level script runtime that is nearly identical to the syntax of the C programming language and provides most commonly used C runtime libraries and posix interfaces, and memory allocation is managed. 
 * You can execute the script code in sub process or on a thread of the current process, and when the script code is executed in the current process, you can also set it to a Java layer callback that supports Java's base and String types. 
-* The goal of this project is to solve the compile and execute C code in android is difficult, because the ARM branch of GCC has fully 20 MB, and the project all the binary added up to less than 300 KB, it is small but all-sided. So it is very suitable for embedding android applications, this for the development of compact android C programming language IDE provides may 
+* The goal of this project is to solve the compile and execute C code in android is difficult, because the ARM branch of GCC has fully 20 MB, and the project all the binary added up to less than 300 KB, it is small but all-sided. So it is very suitable for embedding android applications, this for the development of compact android C programming language IDE provides may.
 * Also, changing it to jni provides another possibility because it contains many underlying system calls.
 
 ## Dependency
