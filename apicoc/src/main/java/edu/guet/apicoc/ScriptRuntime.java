@@ -323,6 +323,10 @@ public final class ScriptRuntime
     }
 
     /**
+     * @return 返回已分配的native堆大小以byte为单位
+     */
+
+    /**
      *关闭解释器并清理资源
      * @throws IOException
      */
@@ -804,4 +808,5 @@ public final class ScriptRuntime
     private static native boolean doSomething0(long handler, String source);
 
     private static native void registerHandler0(long handler, String registerText);
+
 }
