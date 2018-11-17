@@ -37,7 +37,7 @@ import java.util.regex.Pattern;
 /**
  * C Script 脚本运行时
  * 支持的基本类型
- * @see String boolean int long double float char short byte void
+ * @see ScriptingString boolean int long double float char short byte void
  * Created by Mr.小世界 on 2018/10/31.
  */
 @TargetApi(Build.VERSION_CODES.KITKAT)
@@ -48,11 +48,13 @@ public final class ScriptRuntime
 {
     private final static String TAG = "ScriptRuntime";
 
+    public final static ScriptingString STRING_EMPTY = new ScriptingString(0, 0);
+
     private final static Map<Class<?>, String> SCRIPT_PARAMETER_TYPE
             = new HashMap<Class<?>, String>()
     {
         {
-            put(String.class, "char *");
+            put(ScriptingString.class, "char *");
             put(boolean.class, "bool");
             put(int.class, "int");
             put(long.class, "long");
@@ -69,7 +71,7 @@ public final class ScriptRuntime
     {
         {
             put(void.class, "void");
-            put(String.class, "char *");
+            put(ScriptingString.class, "char *");
             put(boolean.class, "boolean");
             put(int.class, "int");
             put(long.class, "long");
@@ -86,6 +88,7 @@ public final class ScriptRuntime
     {
         {
             put(void.class, "V");
+            put(ScriptingString.class, "L");
             put(boolean.class, "Z");
             put(int.class, "I");
             put(long.class, "J");
@@ -94,9 +97,10 @@ public final class ScriptRuntime
             put(char.class, "C");
             put(short.class, "S");
             put(byte.class, "B");
-            put(String.class, "L");
         }
     };
+
+    private final Object checkLock = new Object();
 
     private List<MethodHandler> methodHandlers = new ArrayList<>();
 
@@ -256,7 +260,7 @@ public final class ScriptRuntime
     }
 
     /**
-     * 直接执行一段脚本代码,此方法只能以同步的方式执行
+     * 直接执行一段脚本代码
      * @param source 要执行的一段代码
      * @return 返回是否执行成功
      */
@@ -322,9 +326,14 @@ public final class ScriptRuntime
         }
     }
 
-    /**
-     * @return 返回已分配的native堆大小以byte为单位
-     */
+    public ScriptingString allocString(int capacity)
+    {
+        if (capacity <= 0)
+        {
+            throw new IllegalArgumentException();
+        }
+        return new ScriptingString(allocString0(handler, capacity), capacity);
+    }
 
     /**
      *关闭解释器并清理资源
@@ -344,13 +353,18 @@ public final class ScriptRuntime
                 @Override
                 public Void run() throws IOException
                 {
+                    synchronized (checkLock)
+                    {
+                        close0(handler);
+                        handler = 0;
+                    }
                     methodHandlers.clear();
                     methodHandlers = null;
                     stdin.processExited();
                     stdout.processExited();
                     stderr.processExited();
-                    close0(handler);
-                    handler = 0;
+
+
                     return null;
                 }
             });
@@ -659,9 +673,12 @@ public final class ScriptRuntime
 
     private void selfCheck()
     {
-        if (handler == 0)
+        synchronized (checkLock)
         {
-            throw new IllegalStateException("is close");
+            if (handler == 0)
+            {
+                throw new IllegalStateException("is close");
+            }
         }
     }
 
@@ -775,7 +792,6 @@ public final class ScriptRuntime
 
     private Object onInvoke(int index, Object[] args)
     {
-        selfCheck();
         try
         {
             MethodHandler methodHandler = methodHandlers.get(index);
@@ -785,6 +801,8 @@ public final class ScriptRuntime
             throw new RuntimeException(e);
         }
     }
+
+    private static native long allocString0(long handler,int capacity);
 
     private static native int createSub0(int mode,
                                          String[] srcOrFile,
