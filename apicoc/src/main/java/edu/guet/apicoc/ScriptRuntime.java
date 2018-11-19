@@ -48,7 +48,7 @@ public final class ScriptRuntime
 {
     private final static String TAG = "ScriptRuntime";
 
-    public final static ScriptingString STRING_EMPTY = new ScriptingString(0, 0);
+    public final static ScriptingString SCRIPT_STRING_EMPTY = new ScriptingString(0, 0);
 
     private final static Map<Class<?>, String> SCRIPT_PARAMETER_TYPE
             = new HashMap<Class<?>, String>()
@@ -108,6 +108,8 @@ public final class ScriptRuntime
     private PipedInputStream stdout;
     private PipedOutputStream stdin;
 
+    private RuntimeState state;
+
     /**
      * 本地对象的指针
      */
@@ -123,10 +125,10 @@ public final class ScriptRuntime
      */
     public ScriptRuntime()
     {
-        AccessController.doPrivileged(new PrivilegedAction<Void>()
+        state = AccessController.doPrivileged(new PrivilegedAction<RuntimeState>()
         {
             @Override
-            public Void run()
+            public RuntimeState run()
             {
                 FileDescriptor stdinFd = new FileDescriptor();
                 FileDescriptor stdoutFd = new FileDescriptor();
@@ -135,7 +137,7 @@ public final class ScriptRuntime
                 stdin = new PipedOutputStream(stdinFd);
                 stdout = new PipedInputStream(stdoutFd);
                 stderr = new PipedInputStream(stderrFd);
-                return null;
+                return RuntimeState.Idle;
             }
         });
     }
@@ -265,9 +267,20 @@ public final class ScriptRuntime
      * @return 返回是否执行成功
      */
     @WorkerThread
-    public synchronized boolean doSomething(final String source)
+    public boolean doSomething(final String source)
     {
-        selfCheck();
+        synchronized (checkLock)
+        {
+            switch (state)
+            {
+                case Closed:
+                case Running:
+                {
+                    throw new IllegalStateException(state.toString());
+                }
+            }
+            state = RuntimeState.Running;
+        }
         return AccessController.doPrivileged(new PrivilegedAction<Boolean>()
         {
             @Override
@@ -279,6 +292,14 @@ public final class ScriptRuntime
     }
 
     /**
+     * @return 返回当前脚本虚拟机的状态
+     */
+    public RuntimeState getState()
+    {
+        return state;
+    }
+
+    /**
      * 注册所有有@HandlerTarget注解修饰的非静态方法
      * @param target 注册的目标对象
      * @see HandlerTarget
@@ -286,7 +307,17 @@ public final class ScriptRuntime
      */
     public synchronized void registerHandler(Object target)
     {
-        selfCheck();
+        synchronized (checkLock)
+        {
+            switch (state)
+            {
+                case Closed:
+                case Running:
+                {
+                    throw new IllegalStateException(state.toString());
+                }
+            }
+        }
         Pattern pattern = Pattern.compile("[_a-zA-z][_a-zA-z0-9]*");
         Method[] methods = target.getClass().getMethods();
         if (methods != null && methods.length != 0)
@@ -326,6 +357,10 @@ public final class ScriptRuntime
         }
     }
 
+    /**
+     * @param capacity 分配的容量
+     * @return 返回新分配的字符串
+     */
     public ScriptingString allocString(int capacity)
     {
         if (capacity <= 0)
@@ -356,6 +391,7 @@ public final class ScriptRuntime
                     synchronized (checkLock)
                     {
                         close0(handler);
+                        state = RuntimeState.Closed;
                         handler = 0;
                     }
                     methodHandlers.clear();
@@ -363,8 +399,6 @@ public final class ScriptRuntime
                     stdin.processExited();
                     stdout.processExited();
                     stderr.processExited();
-
-
                     return null;
                 }
             });
@@ -668,17 +702,6 @@ public final class ScriptRuntime
         public void write(int b) throws IOException
         {
             throw new IOException("Stream closed");
-        }
-    }
-
-    private void selfCheck()
-    {
-        synchronized (checkLock)
-        {
-            if (handler == 0)
-            {
-                throw new IllegalStateException("is close");
-            }
         }
     }
 
